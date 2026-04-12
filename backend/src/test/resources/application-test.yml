@@ -19,6 +19,11 @@ quiz:
     id: ${QUIZ_INSTANCE_ID:test-instance-1}
   score:
     max: 1000
+  security:
+    jwt:
+      secret: test-secret-min-32-bytes-xxxxxxxxxx
+      access-token-ttl: 1h
+      issuer: quiz-platform-test
 
 logging:
   level:

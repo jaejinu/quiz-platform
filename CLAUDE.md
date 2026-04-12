@@ -75,6 +75,7 @@ cd frontend && npm install && npm run dev
 4. ✅ **핵심 게임 로직** — REST 방/퀴즈 + STOMP join/start/answer/leave + RabbitMQ 답변 파이프라인 + Redis Sorted Set 리더보드 + 타이머/워치독 + 30초 재접속 복구
 5. ✅ **Prometheus 메트릭 + Grafana 대시보드** — `com.quiz.monitoring` 6개 빈 + 5군데 훅 + alerts.yml + provisioning
 6. ✅ **통합 테스트 + 부하 테스트** — Testcontainers 7개 시나리오(Happy/분산advance/재접속/중복답변/DLQ/SelfSkip/Timer) + k6 WebSocket 부하 스크립트
+7. ✅ **JWT 인증** — `com.quiz.auth` 패키지 + `@PreAuthorize` 역할 검증 + 프론트 로그인 UI. Test 프로파일은 stub 유지로 Step 6 테스트 0 수정
 
 ## Claude Code 작업 시 주의사항
 
@@ -96,8 +97,9 @@ cd frontend && npm install && npm run dev
 - **Lombok `@RequiredArgsConstructor` + `@Qualifier`**: 필드에만 `@Qualifier`를 붙이면 Lombok이 생성자 파라미터에 복사하지 않아 주입이 깨진다. **`backend/lombok.config`에 `lombok.copyableAnnotations += Qualifier` 선언되어 있음 — 이 설정을 지우지 마라.**
 - **Spring Security starter**: `SecurityConfig.filterChain`이 모든 경로를 `permitAll`로 열어둔 상태. Step 4에서 JWT 필터로 교체.
 - **이중 경로 브로드캐스트**: `RoomEventPublisher.publish()`는 로컬 `SimpMessagingTemplate`과 Redis 양쪽으로 발행. `RoomEventSubscriber`는 `publisherId` 같으면 skip. 이 불변식을 깨지 마라 — 한 쪽만 쓰면 로컬 유저가 메시지를 못 받거나 중복 수신.
-- **STOMP 인증 토큰 포맷 (현재 스텁)**: `Bearer stub:<userId>:<nickname>:<role>`. Step 5에서 실 JWT로 교체 시 `AuthTokenResolver` 인터페이스 구현체만 바꾸면 됨.
-- **REST 인증 임시 방식 (Step 4)**: `POST /api/rooms` 요청 바디의 `hostId`, `POST /api/rooms/{id}/quizzes?hostId=` 쿼리 파라미터 — Step 5에서 JWT Principal로 치환 예정. 제거될 필드.
+- **STOMP/REST 인증 (Step 7)**: 프로파일별 `AuthTokenResolver` — `local`/`prod`는 `JwtAuthTokenResolver`(HS256 JWT), `test`는 `StubAuthTokenResolver`(`Bearer stub:<userId>:<nickname>:<role>`). Step 6 통합 테스트는 test 프로파일에서 stub 그대로 사용.
+- **HOST 계정**: local 프로파일에서 `HostSeedRunner`로 `host@local.dev`/`hostpass123` 자동 seed.
+- **@PreAuthorize**: `hasRole('HOST')`는 `ROLE_HOST` authority 필요 — `JwtAuthenticationFilter`에서 `"ROLE_" + principal.role()` 프리픽스 붙임.
 - **`GameService` 트랜잭션**: `start/advance/finish/onAnswerCounted` 모두 `@Transactional`. `onAnswerCounted`는 self-invocation 대비 명시적으로 붙여둠. `publishAfterCommit`은 DB 커밋 이후 이벤트 발행을 보장하므로 broadcast 메서드는 이것만 사용.
 - **CORS**: `CorsConfigurationSource` 빈으로 Security 필터 앞단에서 적용. `addCorsMappings` 방식은 preflight가 Security에 막힐 수 있어 사용하지 않음.
 - **advance 싱글톤**: `GameStateStore.tryAcquireAdvanceLock` (`SET NX PX 5s`, 소유자=publisherId). 로컬 타이머/Watchdog/전원제출 어디서 호출해도 1회만 전이.

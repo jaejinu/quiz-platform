@@ -52,6 +52,7 @@ public class GlobalExceptionHandler {
         return switch (code) {
             case RoomNotFoundException.CODE, QuizNotFoundException.CODE -> HttpStatus.NOT_FOUND;
             case UnauthorizedException.CODE -> HttpStatus.FORBIDDEN;
+            case "EMAIL_DUPLICATE" -> HttpStatus.CONFLICT;
             case RoomCodeGenerationFailedException.CODE -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.BAD_REQUEST;
         };

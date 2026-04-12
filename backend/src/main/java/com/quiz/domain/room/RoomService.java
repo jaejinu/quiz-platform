@@ -26,15 +26,15 @@ public class RoomService {
     private final ParticipantRepository participantRepository;
 
     @Transactional
-    public Long create(CreateRoomRequest req) {
-        log.debug("create room title={} hostId={}", req.title(), req.hostId());
-        userRepository.findById(req.hostId())
-            .orElseThrow(() -> new UnauthorizedException("존재하지 않는 사용자입니다. hostId=" + req.hostId()));
+    public Long create(CreateRoomRequest req, Long hostId) {
+        log.debug("create room title={} hostId={}", req.title(), hostId);
+        userRepository.findById(hostId)
+            .orElseThrow(() -> new UnauthorizedException("존재하지 않는 사용자입니다. hostId=" + hostId));
 
         String code = roomCodeGenerator.generate();
         QuizRoom room = QuizRoom.builder()
             .code(code)
-            .hostId(req.hostId())
+            .hostId(hostId)
             .title(req.title())
             .maxPlayers(req.maxPlayers())
             .defaultTimeLimit(req.defaultTimeLimit())

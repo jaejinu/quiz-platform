@@ -2,14 +2,20 @@ package com.quiz.infra.websocket;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+/**
+ * 통합 테스트용 스텁 리졸버.
+ *
+ * <p>토큰 포맷: {@code "Bearer stub:<userId>:<nickname>:<role>"}.
+ * test 프로파일에서만 등록된다 (local/prod 는 {@code JwtAuthTokenResolver} 사용).
+ */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(AuthTokenResolver.class)
+@Profile("test")
 public class StubAuthTokenResolver implements AuthTokenResolver {
 
     private static final String BEARER_PREFIX = "Bearer ";

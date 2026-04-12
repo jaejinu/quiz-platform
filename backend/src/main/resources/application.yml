@@ -48,6 +48,11 @@ quiz:
     endpoint: /ws
   instance:
     id: ${QUIZ_INSTANCE_ID:}
+  security:
+    jwt:
+      secret: ${QUIZ_JWT_SECRET:dev-local-secret-min-32-bytes-xxxxxxxxxx}
+      access-token-ttl: 1h
+      issuer: quiz-platform
 
 logging:
   level:
