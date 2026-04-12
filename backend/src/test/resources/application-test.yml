@@ -1,10 +1,16 @@
 spring:
-  # OAuth2 client autoconfigure는 GitHub registration의 빈 client-id에 예외를 던진다 (Spring Boot 3.3).
-  # 테스트는 Stub 인증만 쓰므로 OAuth2 autoconfigure 전체를 제외.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
-      - org.springframework.boot.autoconfigure.security.oauth2.client.reactive.ReactiveOAuth2ClientAutoConfiguration
+  # OAuth2 client autoconfigure 제외는 SecurityConfig의 .oauth2Login()이 요구하는
+  # ClientRegistrationRepository 빈까지 사라져 context 로딩이 깨진다.
+  # 대안: dummy GitHub registration을 주입해 빈만 존재시키고, 실제 OAuth 플로우는
+  # 테스트에서 호출되지 않으므로 무해.
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            scope: read:user,user:email
   jpa:
     hibernate:
       ddl-auto: create-drop
