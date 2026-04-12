@@ -79,6 +79,7 @@ cd frontend && npm install && npm run dev
 8. ✅ **OAuth2 GitHub 로그인** — `com.quiz.auth.oauth` + SuccessHandler (JWT 발급 후 `#token=...` fragment redirect) + 프론트 `/auth/callback` 파싱 + `docs/oauth-setup.md`
 9. ✅ **게임 결과 PDF** — OpenHtmlToPdf (Apache 2.0) + Noto Sans KR + `GET /api/rooms/{id}/result.pdf` (HOST 전용) + 프론트 다운로드 버튼
 10. ✅ **분산 트레이싱** — Micrometer Tracing + OTel Bridge + Grafana Tempo. RoomEvent에 `traceparent` nullable 필드로 Redis Pub/Sub 경계 전파. Test 프로파일은 `TracingFallbackConfig`의 `OpenTelemetry.noop()`로 우회
+11. ✅ **CI/CD + 배포** — Dockerfile(backend/frontend multi-stage) + docker-compose.prod.yml + GitHub Actions(CI: gradle/vite / Release: GHCR matrix push) + application-prod.yml + EC2/Lightsail 배포 가이드
 
 ## Claude Code 작업 시 주의사항
 

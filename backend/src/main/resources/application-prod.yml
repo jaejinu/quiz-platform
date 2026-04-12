@@ -1,0 +1,56 @@
+server:
+  shutdown: graceful
+  forward-headers-strategy: framework
+  port: 8080
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/quizdb}
+    username: ${SPRING_DATASOURCE_USERNAME:quiz}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:quiz}
+    password: ${SPRING_RABBITMQ_PASSWORD}
+    virtual-host: /
+
+quiz:
+  websocket:
+    allowed-origins: ${QUIZ_WEBSOCKET_ALLOWED_ORIGINS:}
+    endpoint: /ws
+  instance:
+    id: ${QUIZ_INSTANCE_ID:${HOSTNAME}}
+  security:
+    jwt:
+      secret: ${QUIZ_JWT_SECRET}
+      access-token-ttl: 1h
+      issuer: quiz-platform
+  auth:
+    post-login-redirect: ${QUIZ_AUTH_POST_LOGIN_REDIRECT}
+
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://tempo:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+    com.quiz: INFO
+    org.springframework.web.socket: WARN
+    org.hibernate: WARN

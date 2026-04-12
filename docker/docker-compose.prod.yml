@@ -1,0 +1,134 @@
+networks:
+  quiznet:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: quiz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-quizdb}
+      POSTGRES_USER: ${POSTGRES_USER:-quiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quiz} -d ${POSTGRES_DB:-quizdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [quiznet]
+
+  redis:
+    image: redis:7-alpine
+    container_name: quiz-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [quiznet]
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: quiz-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-quiz}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [quiznet]
+
+  backend:
+    image: ghcr.io/jaejinu/quiz-platform-backend:${IMAGE_TAG:-latest}
+    container_name: quiz-backend
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-quizdb}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-quiz}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-quiz}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      QUIZ_JWT_SECRET: ${QUIZ_JWT_SECRET}
+      QUIZ_WEBSOCKET_ALLOWED_ORIGINS: ${QUIZ_WEBSOCKET_ALLOWED_ORIGINS}
+      QUIZ_AUTH_POST_LOGIN_REDIRECT: ${QUIZ_AUTH_POST_LOGIN_REDIRECT}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      TRACING_SAMPLING: ${TRACING_SAMPLING:-0.1}
+    networks: [quiznet]
+
+  frontend:
+    image: ghcr.io/jaejinu/quiz-platform-frontend:${IMAGE_TAG:-latest}
+    container_name: quiz-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks: [quiznet]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quiz-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus-prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks: [quiznet]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quiz-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks: [quiznet]
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: quiz-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo-data:/var/tempo
+    networks: [quiznet]
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  prometheus-data:
+  grafana-data:
+  tempo-data:
