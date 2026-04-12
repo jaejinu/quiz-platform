@@ -8,6 +8,11 @@ import com.quiz.domain.game.GameService;
 import com.quiz.domain.participant.ParticipantService;
 import com.quiz.infra.websocket.AuthPrincipal;
 import com.quiz.infra.websocket.dto.AnswerSubmission;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -25,41 +30,52 @@ import java.security.Principal;
 @RequiredArgsConstructor
 public class GameStompController {
 
+    private static final String INSTRUMENTATION_SCOPE = "com.quiz.stomp";
+
     private final ParticipantService participantService;
     private final GameService gameService;
     private final AnswerService answerService;
+    private final OpenTelemetry openTelemetry;
 
     @MessageMapping("/room/{roomId}/join")
     public void join(@DestinationVariable Long roomId,
                      SimpMessageHeaderAccessor headerAccessor,
                      Principal principal) {
-        AuthPrincipal auth = requireAuth(principal);
-        String sessionId = headerAccessor.getSessionId();
-        log.debug("join roomId={} userId={} sessionId={}", roomId, auth.userId(), sessionId);
-        participantService.join(roomId, auth, sessionId);
+        runInSpan("stomp.receive /room/{id}/join", roomId, () -> {
+            AuthPrincipal auth = requireAuth(principal);
+            String sessionId = headerAccessor.getSessionId();
+            log.debug("join roomId={} userId={} sessionId={}", roomId, auth.userId(), sessionId);
+            participantService.join(roomId, auth, sessionId);
+        });
     }
 
     @MessageMapping("/room/{roomId}/start")
     public void start(@DestinationVariable Long roomId, Principal principal) {
-        AuthPrincipal auth = requireAuth(principal);
-        log.debug("start roomId={} userId={}", roomId, auth.userId());
-        gameService.start(roomId, auth.userId());
+        runInSpan("stomp.receive /room/{id}/start", roomId, () -> {
+            AuthPrincipal auth = requireAuth(principal);
+            log.debug("start roomId={} userId={}", roomId, auth.userId());
+            gameService.start(roomId, auth.userId());
+        });
     }
 
     @MessageMapping("/room/{roomId}/answer")
     public void answer(@DestinationVariable Long roomId,
                        @Payload AnswerSubmission submission,
                        Principal principal) {
-        AuthPrincipal auth = requireAuth(principal);
-        log.debug("answer roomId={} userId={} quizId={}", roomId, auth.userId(), submission.quizId());
-        answerService.accept(roomId, auth, submission);
+        runInSpan("stomp.receive /room/{id}/answer", roomId, () -> {
+            AuthPrincipal auth = requireAuth(principal);
+            log.debug("answer roomId={} userId={} quizId={}", roomId, auth.userId(), submission.quizId());
+            answerService.accept(roomId, auth, submission);
+        });
     }
 
     @MessageMapping("/room/{roomId}/leave")
     public void leave(@DestinationVariable Long roomId, Principal principal) {
-        AuthPrincipal auth = requireAuth(principal);
-        log.debug("leave roomId={} userId={}", roomId, auth.userId());
-        participantService.leave(roomId, auth.userId());
+        runInSpan("stomp.receive /room/{id}/leave", roomId, () -> {
+            AuthPrincipal auth = requireAuth(principal);
+            log.debug("leave roomId={} userId={}", roomId, auth.userId());
+            participantService.leave(roomId, auth.userId());
+        });
     }
 
     @MessageExceptionHandler(QuizException.class)
@@ -81,5 +97,27 @@ public class GameStompController {
             throw new UnauthorizedException("인증되지 않은 연결입니다.");
         }
         return auth;
+    }
+
+    /**
+     * STOMP {@code @MessageMapping} 핸들러 전체를 span 으로 감싼다.
+     * span name은 pattern 문자열 (high-cardinality 회피). roomId는 attribute로만.
+     */
+    private void runInSpan(String spanName, long roomIdAttr, Runnable action) {
+        Tracer tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+        Span span = tracer.spanBuilder(spanName)
+                .setSpanKind(SpanKind.SERVER)
+                .setAttribute("messaging.system", "stomp")
+                .setAttribute("messaging.operation", "process")
+                .setAttribute("room.id", roomIdAttr)
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            action.run();
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 }

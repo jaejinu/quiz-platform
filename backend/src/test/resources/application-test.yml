@@ -10,6 +10,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+management:
+  tracing:
+    enabled: false
+  otlp:
+    tracing:
+      export:
+        enabled: false
+
 quiz:
   websocket:
     allowed-origins:

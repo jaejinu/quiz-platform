@@ -16,6 +16,11 @@ import com.quiz.infra.redis.RoomEventType;
 import com.quiz.monitoring.GameAdvanceMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +38,7 @@ public class GameService {
 
     private static final Duration LEADERBOARD_TTL_AFTER_FINISH = Duration.ofHours(1);
     private static final int FINAL_LEADERBOARD_SIZE = 100;
+    private static final String INSTRUMENTATION_SCOPE = "com.quiz.game";
 
     private final QuizRoomRepository quizRoomRepository;
     private final QuizRepository quizRepository;
@@ -43,6 +49,7 @@ public class GameService {
     private final ParticipantRepository participantRepository;
     private final GameAdvanceMetrics gameAdvanceMetrics;
     private final MeterRegistry meterRegistry;
+    private final OpenTelemetry openTelemetry;
 
     @Transactional
     public void start(Long roomId, Long hostUserId) {
@@ -90,7 +97,13 @@ public class GameService {
     @Transactional
     public void advance(Long roomId, Long expectedQuizId) {
         Timer.Sample sample = Timer.start(meterRegistry);
-        try {
+        Tracer tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+        Span span = tracer.spanBuilder("game.advance")
+            .setSpanKind(SpanKind.INTERNAL)
+            .setAttribute("room.id", roomId != null ? roomId : -1L)
+            .setAttribute("quiz.expected.id", expectedQuizId != null ? expectedQuizId : -1L)
+            .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
             if (expectedQuizId == null) {
                 return;
             }
@@ -139,9 +152,16 @@ public class GameService {
             Long nextQuizId = nextQuiz.getId();
             quizTimerScheduler.schedule(roomId, nextQuizId, deadline, () -> advance(roomId, nextQuizId));
 
+            span.setAttribute("quiz.next.id", nextQuizId);
+            span.setAttribute("quiz.next.index", nextIndex);
+
             log.info("advance roomId={} from quizId={} to quizId={} index={} deadline={}",
                 roomId, expectedQuizId, nextQuizId, nextIndex, deadline);
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
         } finally {
+            span.end();
             sample.stop(gameAdvanceMetrics.advanceTimer());
         }
     }

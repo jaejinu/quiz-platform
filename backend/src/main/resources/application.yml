@@ -18,6 +18,12 @@ spring:
             client-id: ${GITHUB_CLIENT_ID:}
             client-secret: ${GITHUB_CLIENT_SECRET:}
             scope: read:user,user:email
+  rabbitmq:
+    template:
+      observation-enabled: true
+    listener:
+      simple:
+        observation-enabled: true
 
 server:
   port: 8080
@@ -31,6 +37,15 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+    propagation:
+      type: w3c
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      transport: http
   metrics:
     tags:
       application: ${spring.application.name}
