@@ -15,6 +15,7 @@ import com.quiz.domain.user.User;
 import com.quiz.infra.redis.RoomEventPublisher;
 import com.quiz.monitoring.GameAdvanceMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -49,6 +50,7 @@ class DistributedAdvanceLockTest extends AbstractIntegrationTest {
     @Autowired private LeaderboardService leaderboardService;
     @Autowired private GameAdvanceMetrics gameAdvanceMetrics;
     @Autowired private MeterRegistry meterRegistry;
+    @Autowired private OpenTelemetry openTelemetry;
 
     @Test
     void onlyOneInstanceWinsAdvance() throws Exception {
@@ -73,10 +75,10 @@ class DistributedAdvanceLockTest extends AbstractIntegrationTest {
 
         GameService gsA = new GameService(quizRoomRepository, quizRepository, storeA,
                 roomEventPublisher, quizTimerScheduler, leaderboardService,
-                participantRepository, gameAdvanceMetrics, meterRegistry);
+                participantRepository, gameAdvanceMetrics, meterRegistry, openTelemetry);
         GameService gsB = new GameService(quizRoomRepository, quizRepository, storeB,
                 roomEventPublisher, quizTimerScheduler, leaderboardService,
-                participantRepository, gameAdvanceMetrics, meterRegistry);
+                participantRepository, gameAdvanceMetrics, meterRegistry, openTelemetry);
 
         // start는 한 쪽만. 상태가 공유 Redis에 기록되므로 둘 다 읽음.
         gsA.start(roomId, host.getId());
