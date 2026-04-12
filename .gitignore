@@ -1,0 +1,35 @@
+# Gradle / Java
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Node / Frontend
+node_modules/
+dist/
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+docker/volumes/
+
+# Claude Code local settings
+.claude/

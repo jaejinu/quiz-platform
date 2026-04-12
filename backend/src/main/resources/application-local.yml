@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/quizdb
+    username: quiz
+    password: quiz
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: quiz
+    password: quiz
+    virtual-host: /
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+quiz:
+  websocket:
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000
+    endpoint: /ws
+  instance:
+    id: ${QUIZ_INSTANCE_ID:}
+  score:
+    max: 1000

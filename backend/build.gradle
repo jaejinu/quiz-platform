@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.5'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.quiz'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Web + WebSocket
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Security + OAuth2 (GitHub)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+    // Persistence
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // RabbitMQ
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    // Monitoring
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Logging (structured JSON)
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
+    // JWT (추후 Step 2+에서 인증 붙일 때 사용)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // DevTools (로컬 개발용)
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.3'
+    testImplementation 'org.testcontainers:postgresql:1.20.3'
+    testImplementation 'org.testcontainers:rabbitmq:1.20.3'
+    testImplementation 'com.redis:testcontainers-redis:2.2.2'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

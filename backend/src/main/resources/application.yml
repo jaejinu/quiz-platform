@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: quiz-platform
+  profiles:
+    active: local
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+quiz:
+  websocket:
+    allowed-origins: []
+    endpoint: /ws
+  instance:
+    id: ${QUIZ_INSTANCE_ID:}
+
+logging:
+  level:
+    root: INFO
+    com.quiz: DEBUG
+    org.springframework.web.socket: INFO
