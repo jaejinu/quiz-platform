@@ -13,37 +13,46 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * 통합 테스트 공통 base. Testcontainers로 PostgreSQL/Redis/RabbitMQ를 띄우고
  * 각 @Test 시작 전 {@link ContainerReset#resetAll()}로 상태를 초기화한다.
  *
- * 컨테이너는 {@code withReuse(true)}로 설정되어 로컬 개발 시
- * {@code ~/.testcontainers.properties} 에 {@code testcontainers.reuse.enable=true} 를
- * 설정하면 JVM 간 재사용된다. (CI에서는 무시되고 매번 새로 뜸.)
+ * <h3>Singleton Container pattern</h3>
+ * {@code @Container} + {@code @Testcontainers} 조합은 테스트 클래스 단위 lifecycle이라
+ * 클래스 경계에서 컨테이너 start/stop이 반복되며 포트 매핑이 바뀌어 Spring
+ * TestContext 캐시와 불일치한다 (Connection refused).
+ *
+ * <p>대신 static initializer에서 한 번만 {@code start()}를 호출하고 JVM 종료까지
+ * 재사용한다. Spring이 {@code @DynamicPropertySource}로 포트를 바인딩하면
+ * 모든 후속 테스트가 같은 포트를 쓴다.
+ *
+ * <p>로컬 개발 시 {@code ~/.testcontainers.properties} 에
+ * {@code testcontainers.reuse.enable=true} 를 설정하면 {@code withReuse}가 활성화되어
+ * JVM 간 재사용 (반복 실행 시 빠름). CI에서는 reuse 미설정으로 매 run에 새로 뜸.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
-    static PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
             .withDatabaseName("quizdb")
             .withUsername("quiz")
             .withPassword("quiz")
             .withReuse(true);
 
-    @Container
-    static GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine")
+    static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine")
             .withExposedPorts(6379)
             .withReuse(true);
 
-    @Container
-    static RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:3.13-management-alpine")
+    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:3.13-management-alpine")
             .withReuse(true);
+
+    static {
+        POSTGRES.start();
+        REDIS.start();
+        RABBIT.start();
+    }
 
     @DynamicPropertySource
     static void bind(DynamicPropertyRegistry registry) {
