@@ -14,6 +14,29 @@ Step별 요약은 [`CLAUDE.md`의 "진행 단계"](../CLAUDE.md) 또는 [`docs/p
 
 ---
 
+## 진행 중인 작업 (2026-04-12 기준)
+
+### CI 수정 (라운드 6 진행 중)
+
+Step 11 push 직후 CI가 줄줄이 실패해서 **6 라운드**에 걸쳐 수정 중.
+상세 로그: [`docs/ci-fix-log.md`](./ci-fix-log.md)
+
+| 라운드 | 문제 | 커밋 | 상태 |
+|---|---|---|---|
+| 1 | `DistributedAdvanceLockTest` GameService 10-arg 불일치 | `eb57eaa` | ✅ |
+| 2 | `frontend/package-lock.json` 부재로 npm cache 실패 | `eb57eaa` | ✅ |
+| 3 | Gradle 9: `junit-platform-launcher` 명시 요구 | `192d51c` | ✅ |
+| 4 | OAuth2 빈 client-id 예외 → autoconfig 제외 시도 | `ec9f337` | ❌ (부작용) |
+| 5 | Dummy GitHub registration 주입 | `43de40b` | ✅ context 로딩 |
+| 6 | Testcontainers Singleton Pattern 전환 | `412c924` | ⏳ 실행 중 |
+
+**다음 세션 진입 시 먼저 할 것**:
+1. `gh run list --limit 5` — CI 결과 확인
+2. 성공이면 → 아래 "확장" 작업 중 택일
+3. 실패면 → `gh run download <id>` + artifact 분석 → 라운드 7+
+
+---
+
 ## 검증 안 된 것 (중요)
 
 이 프로젝트는 **코드를 실제로 실행·빌드·테스트한 적이 없다**. 다음 중 하나부터 시작 권장.
