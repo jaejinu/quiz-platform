@@ -32,6 +32,8 @@ npm install && npm run dev
 - [아키텍처](./docs/architecture.md)
 - [진행 로그](./docs/progress.md)
 - [API 스펙](./docs/api-spec.md) (작성 예정)
+- [게임 결과 PDF](./docs/step9-pdf.md) — HOST 전용 결과지 다운로드 (OpenHtmlToPdf + Noto Sans KR)
+- [Third-Party Licenses](./THIRD_PARTY_LICENSES.md)
 - [Claude Code 가이드](./CLAUDE.md)
 
 ## 라이선스

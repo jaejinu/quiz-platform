@@ -14,6 +14,8 @@ export default function GameApp({ jwt, user, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [snapshot, setSnapshot] = useState(null);
   const [errors, setErrors] = useState([]);
+  const [gameFinished, setGameFinished] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const clientRef = useRef(null);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function GameApp({ jwt, user, onLogout }) {
             const evt = JSON.parse(frame.body);
             pushMessage(evt.type, evt);
             if (evt.type === 'QUIZ_PUSHED') setCurrentQuizId(String(evt.payload?.quizId ?? ''));
+            if (evt.type === 'GAME_FINISHED') setGameFinished(true);
           } catch {
             pushMessage('raw', frame.body);
           }
@@ -55,7 +58,10 @@ export default function GameApp({ jwt, user, onLogout }) {
         console.error('Broker error', frame.headers['message']);
         setStatus('error');
       },
-      onWebSocketClose: () => setStatus('disconnected'),
+      onWebSocketClose: () => {
+        setStatus('disconnected');
+        setGameFinished(false);
+      },
     });
     client.activate();
     clientRef.current = client;
@@ -71,7 +77,10 @@ export default function GameApp({ jwt, user, onLogout }) {
   };
 
   const sendJoin = () => publish(`/app/room/${roomId}/join`);
-  const sendStart = () => publish(`/app/room/${roomId}/start`);
+  const sendStart = () => {
+    publish(`/app/room/${roomId}/start`);
+    setGameFinished(false);
+  };
   const sendLeave = () => publish(`/app/room/${roomId}/leave`);
   const sendAnswer = () => {
     if (!currentQuizId || !answerText) return;
@@ -128,6 +137,35 @@ export default function GameApp({ jwt, user, onLogout }) {
     }
   };
 
+  const downloadResultPdf = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetchWithAuth(`/api/rooms/${roomId}/result.pdf`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'PDF 다운로드 실패' }));
+        alert(err.message || `에러 (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('content-disposition') || '';
+      const match = /filename\*?=(?:UTF-8'')?["]?([^";]+)["]?/i.exec(disposition);
+      const filename = match ? decodeURIComponent(match[1]) : `quiz-result-${roomId}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(`다운로드 실패: ${e.message}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="container">
       <header className="header">
@@ -175,6 +213,14 @@ export default function GameApp({ jwt, user, onLogout }) {
           /answer
         </button>
       </div>
+
+      {isHost && gameFinished && (
+        <div className="row">
+          <button className="primary" onClick={downloadResultPdf} disabled={downloading}>
+            {downloading ? '다운로드 중...' : '📄 결과 PDF 다운로드'}
+          </button>
+        </div>
+      )}
 
       {snapshot && (
         <>
