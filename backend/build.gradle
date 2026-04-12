@@ -81,6 +81,9 @@ dependencies {
     testImplementation 'com.redis:testcontainers-redis:2.2.2'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // Gradle 9+는 JUnit Platform launcher를 runtime classpath에 명시 요구
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
