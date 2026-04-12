@@ -76,6 +76,7 @@ cd frontend && npm install && npm run dev
 5. ✅ **Prometheus 메트릭 + Grafana 대시보드** — `com.quiz.monitoring` 6개 빈 + 5군데 훅 + alerts.yml + provisioning
 6. ✅ **통합 테스트 + 부하 테스트** — Testcontainers 7개 시나리오(Happy/분산advance/재접속/중복답변/DLQ/SelfSkip/Timer) + k6 WebSocket 부하 스크립트
 7. ✅ **JWT 인증** — `com.quiz.auth` 패키지 + `@PreAuthorize` 역할 검증 + 프론트 로그인 UI. Test 프로파일은 stub 유지로 Step 6 테스트 0 수정
+8. ✅ **OAuth2 GitHub 로그인** — `com.quiz.auth.oauth` + SuccessHandler (JWT 발급 후 `#token=...` fragment redirect) + 프론트 `/auth/callback` 파싱 + `docs/oauth-setup.md`
 
 ## Claude Code 작업 시 주의사항
 

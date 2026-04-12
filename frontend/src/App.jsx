@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AuthGate from './AuthGate';
 import GameApp from './GameApp';
 
@@ -12,6 +12,35 @@ export default function App() {
       return null;
     }
   });
+  const [oauthError, setOauthError] = useState(null);
+
+  useEffect(() => {
+    if (window.location.pathname !== '/auth/callback') return;
+
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+
+    const error = params.get('error');
+    if (error) {
+      setOauthError(error);
+      window.history.replaceState(null, '', '/');
+      return;
+    }
+
+    const token = params.get('token');
+    const userId = params.get('userId');
+    const nickname = params.get('nickname');
+    const role = params.get('role');
+
+    if (token && userId && nickname && role) {
+      const user = { id: Number(userId), nickname, role };
+      localStorage.setItem('quiz.jwt', token);
+      localStorage.setItem('quiz.user', JSON.stringify(user));
+      setJwt(token);
+      setCurrentUser(user);
+      window.history.replaceState(null, '', '/');
+    }
+  }, []);
 
   const handleLogin = (tokenResponse) => {
     localStorage.setItem('quiz.jwt', tokenResponse.accessToken);
@@ -28,7 +57,7 @@ export default function App() {
   };
 
   if (!jwt || !currentUser) {
-    return <AuthGate onAuth={handleLogin} />;
+    return <AuthGate onAuth={handleLogin} oauthError={oauthError} />;
   }
   return <GameApp jwt={jwt} user={currentUser} onLogout={handleLogout} />;
 }

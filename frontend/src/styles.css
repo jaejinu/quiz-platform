@@ -186,3 +186,44 @@ input {
   background: #d1ecf1;
   color: #0c5460;
 }
+
+/* ---------- OAuth (Step 8-B) ---------- */
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #86868b;
+  font-size: 0.85em;
+}
+.oauth-divider::before,
+.oauth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e5e5ea;
+}
+
+.oauth-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  font-size: 0.95em;
+  font-weight: 500;
+}
+.oauth-button.github {
+  background: #24292f;
+  color: #fff;
+  border-color: #24292f;
+}
+.oauth-button.github:hover:not(:disabled) {
+  background: #32383f;
+}
+
+.oauth-error {
+  margin-bottom: 16px;
+}

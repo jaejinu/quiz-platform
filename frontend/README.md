@@ -30,3 +30,4 @@ Step 3(백엔드 WebSocket 설정) 완료 전까지는 연결 실패가 정상.
 - STOMP `CONNECT` 프레임의 `Authorization` 헤더에도 동일 JWT가 실립니다.
 - 401 수신 시 로컬 스토리지를 비우고 새로고침하여 로그인 화면으로 복귀합니다.
 - `POST /api/rooms`, `POST /api/rooms/{id}/quizzes`, `/start`는 **HOST 역할**만 허용됩니다. PLAYER 계정에서는 버튼이 비활성화됩니다.
+- **GitHub으로 로그인**: GitHub OAuth App 등록 필요 (`docs/oauth-setup.md` 참조). 환경변수 `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` 설정 후 백엔드 재시작.

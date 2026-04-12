@@ -38,3 +38,5 @@ quiz:
       secret: dev-local-secret-min-32-bytes-xxxxxxxxxx
       access-token-ttl: 1h
       issuer: quiz-platform
+  auth:
+    post-login-redirect: http://localhost:5173/auth/callback

@@ -10,6 +10,14 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
+            scope: read:user,user:email
 
 server:
   port: 8080
@@ -53,6 +61,8 @@ quiz:
       secret: ${QUIZ_JWT_SECRET:dev-local-secret-min-32-bytes-xxxxxxxxxx}
       access-token-ttl: 1h
       issuer: quiz-platform
+  auth:
+    post-login-redirect: ${QUIZ_AUTH_POST_LOGIN_REDIRECT:http://localhost:5173/auth/callback}
 
 logging:
   level:
