@@ -1,4 +1,10 @@
 spring:
+  # OAuth2 client autoconfigure는 GitHub registration의 빈 client-id에 예외를 던진다 (Spring Boot 3.3).
+  # 테스트는 Stub 인증만 쓰므로 OAuth2 autoconfigure 전체를 제외.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.client.reactive.ReactiveOAuth2ClientAutoConfiguration
   jpa:
     hibernate:
       ddl-auto: create-drop
