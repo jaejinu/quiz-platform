@@ -190,3 +190,61 @@ PLAYERS: SEND /app/room/{id}/answer {quizId, answer}
 
 ### 다음 단계
 Step 5 — Prometheus 커스텀 메트릭 (활성 방 수, WebSocket 연결 수, 답변 처리 지연 히스토그램, RabbitMQ 큐 길이) + Grafana 대시보드. 또한 JWT 인증으로 Step 4 임시 필드(`hostId` 파라미터) 제거 고려.
+
+---
+
+## 2026-04-12 — Step 5: Prometheus 메트릭 + Grafana 대시보드
+
+**진행 방식**: Plan 에이전트 설계서 → 결정 간단해서 확인 스킵 → 에이전트 2개(백엔드 / 인프라) 병렬.
+
+### 완료 항목
+
+#### (A) 백엔드 메트릭
+- `com.quiz.monitoring` 6개 클래스:
+  - `GameMetrics` — Gauge `quiz.active.rooms` (GameStateStore 참조)
+  - `WebSocketMetrics` — Gauge `quiz.websocket.sessions` (SimpUserRegistry)
+  - `RabbitMetrics` — Gauge `quiz.rabbitmq.answers.queue.depth` (AmqpAdmin, 예외 시 -1)
+  - `EventMetrics` — Counter `quiz.events.published/received`(tag=type) + Timer `quiz.redis.pubsub.latency`
+  - `AnswerMetrics` — Counter `quiz.answers.enqueued/processed`(outcome=ok/duplicate/error) + Timer `quiz.answer.processing.duration`
+  - `GameAdvanceMetrics` — Timer `quiz.game.advance.duration`
+- 기존 파일 5군데 훅:
+  - `RoomEventPublisher.publish` → publish 성공 시 counter +1
+  - `RoomEventSubscriber.onMessage` → self-skip 통과 시 counter +1 + latency record
+  - `AnswerService.accept` → enqueue counter +1
+  - `AnswerProcessor.onMessage` → try/catch/finally 재구성, outcome별 counter + Timer.Sample
+  - `GameService.advance` → Timer.Sample + finally stop (조기 return도 계측)
+- `application.yml`에 percentile/histogram/SLO 설정 추가
+
+#### (B) 모니터링 인프라
+- `docker/grafana/provisioning/datasources/prometheus.yml` — Prometheus 데이터소스 자동 등록
+- `docker/grafana/provisioning/dashboards/dashboards.yml` — 대시보드 provisioning
+- `docker/grafana/dashboards/quiz-overview.json` — 8개 패널 (Active Rooms, WebSocket Sessions, Answer Latency P50/P95/P99, Events Published/Received by Type, Rabbit Queue Depth, Pub/Sub P95, Error Rate)
+- `docker/prometheus/alerts.yml` — 4개 alert rule (HighAnswerLatency, RabbitQueueBacklog, AnswerErrorRate, PubSubLatencyHigh)
+- `docker/prometheus/prometheus.yml` — `rule_files: ["alerts.yml"]` 추가
+- `docker/docker-compose.monitor.yml` — grafana provisioning/dashboards 볼륨 + prometheus alerts.yml 마운트
+- `docs/monitoring.md` — 메트릭 카탈로그 + 실행 가이드
+
+### Prometheus 노출 이름
+Micrometer dot → snake_case + Counter `_total` 자동, Timer `_seconds` 자동.
+- `quiz_active_rooms`, `quiz_websocket_sessions`, `quiz_rabbitmq_answers_queue_depth`
+- `quiz_events_published_total{type}`, `quiz_events_received_total{type}`
+- `quiz_answers_enqueued_total`, `quiz_answers_processed_total{outcome}`
+- `quiz_answer_processing_duration_seconds_bucket`, `quiz_redis_pubsub_latency_seconds_bucket`, `quiz_game_advance_duration_seconds_bucket`
+
+### 실행
+```bash
+cd docker
+docker compose -f docker-compose.yml -f docker-compose.monitor.yml up -d
+# Grafana:    http://localhost:3001 (admin/admin) → Dashboards → "Quiz Platform Overview"
+# Prometheus: http://localhost:9090
+# Alerts:     http://localhost:9090/alerts
+```
+
+### 의도적으로 안 한 것
+- AOP Aspect 자동 계측 — 예외 경로 제어가 명시적인 직접 호출 방식 선호
+- 고카디널리티 태그 (roomId/userId/quizId)
+- Alertmanager 연동 (Prometheus UI `/alerts`에서만 확인)
+- Distributed tracing (Zipkin/Tempo) — Step 6 이후 선택
+
+### 다음 단계
+Step 6 — Testcontainers 통합 테스트(Redis/Rabbit/Postgres 띄우고 전체 게임 사이클 검증) + k6 WebSocket 부하 테스트.

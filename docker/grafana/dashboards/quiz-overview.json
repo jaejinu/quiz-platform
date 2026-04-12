@@ -1,0 +1,304 @@
+{
+  "uid": "quiz-overview",
+  "title": "Quiz Platform Overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "timezone": "",
+  "editable": true,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "tags": ["quiz", "platform"],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active Rooms",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "quiz_active_rooms",
+          "legendFormat": "active rooms"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "WebSocket Sessions",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "quiz_websocket_sessions",
+          "legendFormat": "sessions"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Answer Processing Latency (P50/P95/P99)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 5,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(quiz_answer_processing_duration_seconds_bucket[1m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(quiz_answer_processing_duration_seconds_bucket[1m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(quiz_answer_processing_duration_seconds_bucket[1m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Events Published by Type",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 50,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "sum by (type) (rate(quiz_events_published_total[1m]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Events Received by Type",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 50,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "sum by (type) (rate(quiz_events_received_total[1m]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "RabbitMQ Queue Depth",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "quiz_rabbitmq_answers_queue_depth",
+          "legendFormat": "quiz.answers"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pub/Sub Latency P95",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(quiz_redis_pubsub_latency_seconds_bucket[1m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Answer Error Rate",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": "Prometheus",
+          "expr": "rate(quiz_answers_processed_total{outcome=\"error\"}[1m]) / (rate(quiz_answers_processed_total[1m]) > 0)",
+          "legendFormat": "error rate"
+        }
+      ]
+    }
+  ]
+}

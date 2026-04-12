@@ -13,6 +13,9 @@ import com.quiz.domain.room.QuizRoom;
 import com.quiz.domain.room.QuizRoomRepository;
 import com.quiz.infra.redis.RoomEventPublisher;
 import com.quiz.infra.redis.RoomEventType;
+import com.quiz.monitoring.GameAdvanceMetrics;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +41,8 @@ public class GameService {
     private final QuizTimerScheduler quizTimerScheduler;
     private final LeaderboardService leaderboardService;
     private final ParticipantRepository participantRepository;
+    private final GameAdvanceMetrics gameAdvanceMetrics;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public void start(Long roomId, Long hostUserId) {
@@ -84,56 +89,61 @@ public class GameService {
      */
     @Transactional
     public void advance(Long roomId, Long expectedQuizId) {
-        if (expectedQuizId == null) {
-            return;
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            if (expectedQuizId == null) {
+                return;
+            }
+            if (!gameStateStore.tryAcquireAdvanceLock(roomId, expectedQuizId)) {
+                log.debug("advance skip — lock held roomId={} quizId={}", roomId, expectedQuizId);
+                return;
+            }
+
+            Long currentQuizId = gameStateStore.getCurrentQuizId(roomId);
+            if (currentQuizId == null) {
+                log.debug("advance skip — no active quiz roomId={}", roomId);
+                return;
+            }
+            if (!currentQuizId.equals(expectedQuizId)) {
+                log.debug("advance skip — already moved roomId={} expected={} current={}",
+                    roomId, expectedQuizId, currentQuizId);
+                return;
+            }
+
+            Integer currentIndex = gameStateStore.getCurrentQuizIndex(roomId);
+            if (currentIndex == null) {
+                log.warn("advance skip — missing index roomId={}", roomId);
+                return;
+            }
+
+            int nextIndex = currentIndex + 1;
+            var nextQuizOpt = quizRepository.findByRoomIdAndOrderIndex(roomId, nextIndex);
+
+            if (nextQuizOpt.isEmpty()) {
+                finish(roomId);
+                return;
+            }
+
+            Quiz nextQuiz = nextQuizOpt.get();
+            QuizRoom room = quizRoomRepository.findById(roomId)
+                .orElseThrow(() -> new RoomNotFoundException(roomId));
+            int effectiveLimit = effectiveTimeLimitSec(nextQuiz, room);
+            long now = System.currentTimeMillis();
+            long deadline = now + effectiveLimit * 1000L;
+
+            gameStateStore.advance(roomId, nextQuiz.getId(), nextIndex, deadline);
+
+            roomEventPublisher.publishAfterCommit(roomId, RoomEventType.QUIZ_PUSHED,
+                quizPushedPayload(nextQuiz, nextIndex, effectiveLimit, deadline));
+
+            Long nextQuizId = nextQuiz.getId();
+            quizTimerScheduler.schedule(roomId, nextQuizId, deadline, () -> advance(roomId, nextQuizId));
+
+            log.info("advance roomId={} from quizId={} to quizId={} index={} deadline={}",
+                roomId, expectedQuizId, nextQuizId, nextIndex, deadline);
+        } finally {
+            sample.stop(gameAdvanceMetrics.advanceTimer());
         }
-        if (!gameStateStore.tryAcquireAdvanceLock(roomId, expectedQuizId)) {
-            log.debug("advance skip — lock held roomId={} quizId={}", roomId, expectedQuizId);
-            return;
-        }
-
-        Long currentQuizId = gameStateStore.getCurrentQuizId(roomId);
-        if (currentQuizId == null) {
-            log.debug("advance skip — no active quiz roomId={}", roomId);
-            return;
-        }
-        if (!currentQuizId.equals(expectedQuizId)) {
-            log.debug("advance skip — already moved roomId={} expected={} current={}",
-                roomId, expectedQuizId, currentQuizId);
-            return;
-        }
-
-        Integer currentIndex = gameStateStore.getCurrentQuizIndex(roomId);
-        if (currentIndex == null) {
-            log.warn("advance skip — missing index roomId={}", roomId);
-            return;
-        }
-
-        int nextIndex = currentIndex + 1;
-        var nextQuizOpt = quizRepository.findByRoomIdAndOrderIndex(roomId, nextIndex);
-
-        if (nextQuizOpt.isEmpty()) {
-            finish(roomId);
-            return;
-        }
-
-        Quiz nextQuiz = nextQuizOpt.get();
-        QuizRoom room = quizRoomRepository.findById(roomId)
-            .orElseThrow(() -> new RoomNotFoundException(roomId));
-        int effectiveLimit = effectiveTimeLimitSec(nextQuiz, room);
-        long now = System.currentTimeMillis();
-        long deadline = now + effectiveLimit * 1000L;
-
-        gameStateStore.advance(roomId, nextQuiz.getId(), nextIndex, deadline);
-
-        roomEventPublisher.publishAfterCommit(roomId, RoomEventType.QUIZ_PUSHED,
-            quizPushedPayload(nextQuiz, nextIndex, effectiveLimit, deadline));
-
-        Long nextQuizId = nextQuiz.getId();
-        quizTimerScheduler.schedule(roomId, nextQuizId, deadline, () -> advance(roomId, nextQuizId));
-
-        log.info("advance roomId={} from quizId={} to quizId={} index={} deadline={}",
-            roomId, expectedQuizId, nextQuizId, nextIndex, deadline);
     }
 
     @Transactional

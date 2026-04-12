@@ -26,6 +26,17 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        quiz.answer.processing.duration: true
+        quiz.redis.pubsub.latency: true
+        quiz.game.advance.duration: true
+      percentiles:
+        quiz.answer.processing.duration: 0.5,0.95,0.99
+        quiz.redis.pubsub.latency: 0.5,0.95,0.99
+        quiz.game.advance.duration: 0.5,0.95
+      slo:
+        quiz.answer.processing.duration: 100ms,300ms,500ms
   prometheus:
     metrics:
       export:

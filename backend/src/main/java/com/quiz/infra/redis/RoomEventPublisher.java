@@ -1,6 +1,7 @@
 package com.quiz.infra.redis;
 
 import com.quiz.domain.leaderboard.LeaderboardKeys;
+import com.quiz.monitoring.EventMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,6 +24,7 @@ public class RoomEventPublisher {
     private final SimpMessagingTemplate simpMessagingTemplate;
     @Qualifier("publisherId")
     private final String publisherId;
+    private final EventMetrics eventMetrics;
 
     public void publish(Long roomId, RoomEventType type, Map<String, Object> payload) {
         RoomEvent event = RoomEvent.of(type, roomId, publisherId, payload);
@@ -31,6 +33,7 @@ public class RoomEventPublisher {
             simpMessagingTemplate.convertAndSend(TOPIC_PREFIX + roomId, event);
             // 2단계: 원격 서버에게 Redis Pub/Sub 브리지
             redisTemplate.convertAndSend(LeaderboardKeys.roomChannel(roomId), event);
+            eventMetrics.incrementPublished(type);
             log.debug("published roomId={} type={} publisherId={}", roomId, type, publisherId);
         } catch (Exception e) {
             log.warn("failed to publish room event roomId={} type={} publisherId={}: {}",

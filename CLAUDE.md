@@ -73,7 +73,7 @@ cd frontend && npm install && npm run dev
 2. ✅ **도메인 엔티티** — User, QuizRoom, Quiz, Participant, Answer + JPA Auditing + ScoreCalculator + LeaderboardKeys
 3. ✅ **WebSocket + Redis Pub/Sub 이중 경로** — STOMP `/ws` + 로컬 직접 전달 + Redis 브리지 + self-skip
 4. ✅ **핵심 게임 로직** — REST 방/퀴즈 + STOMP join/start/answer/leave + RabbitMQ 답변 파이프라인 + Redis Sorted Set 리더보드 + 타이머/워치독 + 30초 재접속 복구
-5. ⏳ Prometheus 커스텀 메트릭 + Grafana 대시보드
+5. ✅ **Prometheus 메트릭 + Grafana 대시보드** — `com.quiz.monitoring` 6개 빈 + 5군데 훅 + alerts.yml + provisioning
 6. ⏳ k6 부하 테스트 + Testcontainers 통합 테스트
 
 ## Claude Code 작업 시 주의사항

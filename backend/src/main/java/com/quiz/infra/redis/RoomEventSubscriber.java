@@ -1,6 +1,7 @@
 package com.quiz.infra.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quiz.monitoring.EventMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -10,6 +11,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 
 @Slf4j
 @Component
@@ -22,6 +25,7 @@ public class RoomEventSubscriber implements MessageListener {
     private final ObjectMapper objectMapper;
     @Qualifier("publisherId")
     private final String publisherId;
+    private final EventMetrics eventMetrics;
 
     @Override
     public void onMessage(Message message, byte[] pattern) {
@@ -37,6 +41,11 @@ public class RoomEventSubscriber implements MessageListener {
         if (publisherId.equals(event.publisherId())) {
             log.trace("self-skip roomId={} type={}", event.roomId(), event.type());
             return;
+        }
+
+        eventMetrics.incrementReceived(event.type());
+        if (event.timestamp() != null) {
+            eventMetrics.recordPubSubLatency(Duration.between(event.timestamp(), Instant.now()));
         }
 
         simpMessagingTemplate.convertAndSend(TOPIC_PREFIX + event.roomId(), event);

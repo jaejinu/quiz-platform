@@ -13,6 +13,9 @@ import com.quiz.infra.rabbitmq.AnswerQueueMessage;
 import com.quiz.infra.rabbitmq.RabbitConfig;
 import com.quiz.infra.redis.RoomEventPublisher;
 import com.quiz.infra.redis.RoomEventType;
+import com.quiz.monitoring.AnswerMetrics;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -51,6 +54,8 @@ public class AnswerProcessor {
     private final GameService gameService;
     private final GameStateStore gameStateStore;
     private final RoomEventPublisher roomEventPublisher;
+    private final AnswerMetrics answerMetrics;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     @RabbitListener(queues = RabbitConfig.QUEUE_ANSWERS)
@@ -58,67 +63,80 @@ public class AnswerProcessor {
         log.debug("processor recv roomId={} userId={} quizId={} publisherId={}",
                 msg.roomId(), msg.userId(), msg.quizId(), msg.publisherId());
 
-        // 1) 중복 체크 (이미 처리된 답변)
-        if (answerRepository.findByParticipantIdAndQuizId(msg.participantId(), msg.quizId()).isPresent()) {
-            log.warn("duplicate answer ignored participantId={} quizId={}",
-                    msg.participantId(), msg.quizId());
-            return;
-        }
-
-        // 2) Quiz 로드 (없으면 DLQ)
-        Quiz quiz = quizRepository.findById(msg.quizId())
-                .orElseThrow(() -> new QuizNotFoundException(msg.quizId()));
-
-        boolean correct = quiz.isCorrect(msg.answer());
-
-        int timeLimit = quiz.getTimeLimit();
-        if (timeLimit <= 0) {
-            timeLimit = quizRoomRepository.findById(msg.roomId())
-                    .map(QuizRoom::getDefaultTimeLimit)
-                    .orElse(FALLBACK_TIME_LIMIT);
-        }
-
-        int score = ScoreCalculator.calculate(correct, msg.responseTimeMs(), timeLimit);
-
-        // 3) 저장 (unique 제약 충돌 시 ack drop)
+        Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            Answer saved = answerRepository.save(Answer.builder()
-                    .participantId(msg.participantId())
-                    .quizId(msg.quizId())
-                    .answer(msg.answer())
-                    .isCorrect(correct)
-                    .responseTimeMs(msg.responseTimeMs())
-                    .score(score)
-                    .build());
-            log.info("answer saved id={} participantId={} quizId={} correct={} score={} responseTimeMs={}",
-                    saved.getId(), msg.participantId(), msg.quizId(), correct, score, msg.responseTimeMs());
-        } catch (DataIntegrityViolationException dup) {
-            log.warn("answer unique violation (concurrent duplicate) participantId={} quizId={}: {}",
-                    msg.participantId(), msg.quizId(), dup.getMessage());
-            return;
+            // 1) 중복 체크 (이미 처리된 답변)
+            if (answerRepository.findByParticipantIdAndQuizId(msg.participantId(), msg.quizId()).isPresent()) {
+                log.warn("duplicate answer ignored participantId={} quizId={}",
+                        msg.participantId(), msg.quizId());
+                answerMetrics.counterProcessed("duplicate").increment();
+                return;
+            }
+
+            // 2) Quiz 로드 (없으면 DLQ)
+            Quiz quiz = quizRepository.findById(msg.quizId())
+                    .orElseThrow(() -> new QuizNotFoundException(msg.quizId()));
+
+            boolean correct = quiz.isCorrect(msg.answer());
+
+            int timeLimit = quiz.getTimeLimit();
+            if (timeLimit <= 0) {
+                timeLimit = quizRoomRepository.findById(msg.roomId())
+                        .map(QuizRoom::getDefaultTimeLimit)
+                        .orElse(FALLBACK_TIME_LIMIT);
+            }
+
+            int score = ScoreCalculator.calculate(correct, msg.responseTimeMs(), timeLimit);
+
+            // 3) 저장 (unique 제약 충돌 시 ack drop)
+            try {
+                Answer saved = answerRepository.save(Answer.builder()
+                        .participantId(msg.participantId())
+                        .quizId(msg.quizId())
+                        .answer(msg.answer())
+                        .isCorrect(correct)
+                        .responseTimeMs(msg.responseTimeMs())
+                        .score(score)
+                        .build());
+                log.info("answer saved id={} participantId={} quizId={} correct={} score={} responseTimeMs={}",
+                        saved.getId(), msg.participantId(), msg.quizId(), correct, score, msg.responseTimeMs());
+            } catch (DataIntegrityViolationException dup) {
+                log.warn("answer unique violation (concurrent duplicate) participantId={} quizId={}: {}",
+                        msg.participantId(), msg.quizId(), dup.getMessage());
+                answerMetrics.counterProcessed("duplicate").increment();
+                return;
+            }
+
+            // 4) 정답 → 리더보드 증가
+            if (correct && score > 0) {
+                leaderboardService.incrementScore(msg.roomId(), msg.userId(), score);
+            }
+
+            // 5) answered 카운트 증가 → 집계 이벤트 (정답 여부 비공개)
+            long answered = gameStateStore.incrementAnswerCount(msg.roomId(), msg.quizId());
+
+            roomEventPublisher.publishAfterCommit(msg.roomId(), RoomEventType.ANSWER_SUBMITTED, Map.of(
+                    "userId", msg.userId(),
+                    "quizId", msg.quizId(),
+                    "answered", answered
+            ));
+
+            // 6) 리더보드 스냅샷 브로드캐스트
+            List<LeaderboardEntry> top = leaderboardService.top(msg.roomId(), 10);
+            roomEventPublisher.publishAfterCommit(msg.roomId(), RoomEventType.LEADERBOARD_UPDATED, Map.of(
+                    "leaderboard", top
+            ));
+
+            // 7) 전원 제출 판단 → advance
+            gameService.onAnswerCounted(msg.roomId(), msg.quizId());
+
+            answerMetrics.counterProcessed("ok").increment();
+        } catch (RuntimeException e) {
+            // DLQ 정책 유지: 예외는 rethrow. 단, 집계만 찍고 넘김.
+            answerMetrics.counterProcessed("error").increment();
+            throw e;
+        } finally {
+            sample.stop(answerMetrics.processingTimer());
         }
-
-        // 4) 정답 → 리더보드 증가
-        if (correct && score > 0) {
-            leaderboardService.incrementScore(msg.roomId(), msg.userId(), score);
-        }
-
-        // 5) answered 카운트 증가 → 집계 이벤트 (정답 여부 비공개)
-        long answered = gameStateStore.incrementAnswerCount(msg.roomId(), msg.quizId());
-
-        roomEventPublisher.publishAfterCommit(msg.roomId(), RoomEventType.ANSWER_SUBMITTED, Map.of(
-                "userId", msg.userId(),
-                "quizId", msg.quizId(),
-                "answered", answered
-        ));
-
-        // 6) 리더보드 스냅샷 브로드캐스트
-        List<LeaderboardEntry> top = leaderboardService.top(msg.roomId(), 10);
-        roomEventPublisher.publishAfterCommit(msg.roomId(), RoomEventType.LEADERBOARD_UPDATED, Map.of(
-                "leaderboard", top
-        ));
-
-        // 7) 전원 제출 판단 → advance
-        gameService.onAnswerCounted(msg.roomId(), msg.quizId());
     }
 }

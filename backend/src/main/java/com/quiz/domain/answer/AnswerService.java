@@ -7,6 +7,7 @@ import com.quiz.infra.rabbitmq.AnswerQueueMessage;
 import com.quiz.infra.rabbitmq.RabbitConfig;
 import com.quiz.infra.websocket.AuthPrincipal;
 import com.quiz.infra.websocket.dto.AnswerSubmission;
+import com.quiz.monitoring.AnswerMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -31,6 +32,7 @@ public class AnswerService {
     private final GameStateStore gameStateStore;
     @Qualifier("publisherId")
     private final String publisherId;
+    private final AnswerMetrics answerMetrics;
 
     public void accept(Long roomId, AuthPrincipal principal, AnswerSubmission submission) {
         log.debug("answer accept roomId={} userId={} quizId={}", roomId, principal.userId(), submission.quizId());
@@ -70,6 +72,7 @@ public class AnswerService {
         );
 
         rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, msg);
+        answerMetrics.counterEnqueued().increment();
         log.debug("answer enqueued roomId={} userId={} quizId={} responseTimeMs={}",
                 roomId, principal.userId(), submission.quizId(), responseTimeMs);
     }
