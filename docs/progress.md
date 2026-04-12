@@ -248,3 +248,57 @@ docker compose -f docker-compose.yml -f docker-compose.monitor.yml up -d
 
 ### 다음 단계
 Step 6 — Testcontainers 통합 테스트(Redis/Rabbit/Postgres 띄우고 전체 게임 사이클 검증) + k6 WebSocket 부하 테스트.
+
+---
+
+## 2026-04-12 — Step 6: 통합 테스트 + 부하 테스트
+
+**진행 방식**: Plan 에이전트 → 사용자 확인(A) → 에이전트 2개(A: support + 시나리오 1-4, B: 시나리오 5-7 + k6) 병렬.
+
+### 완료 항목
+
+#### (A) Testcontainers 인프라 + 시나리오 1-4
+- `AbstractIntegrationTest` — `@SpringBootTest(RANDOM_PORT)` + `@Testcontainers` + Postgres 16 / Redis 7 / RabbitMQ 3.13 공유 컨테이너 (`withReuse(true)`) + `@DynamicPropertySource` + `@BeforeEach resetState()`
+- `support/ContainerReset` — TRUNCATE CASCADE + FLUSHALL + queue purge (try/catch)
+- `support/TestDataFactory` — createHost/createPlayer/createRoom/addQuiz 픽스처
+- `support/StompTestClient` — `connect`(Authorization stub 헤더) / `subscribe`(BlockingQueue) / `send`
+- `GameLifecycleIntegrationTest` — 3명 × 3퀴즈 전체 사이클, leaderboard 순서, answer count, room.status FINISHED 검증
+- `DistributedAdvanceLockTest` — `GameStateStore`/`GameService` 인스턴스 2개(publisherId 다름)로 동시 advance → Redis SETNX 경쟁 검증 (한계: 단일 JVM)
+- `ReconnectRecoveryTest` — disconnect → grace → 재 connect + join → `/user/queue/snapshot` 수신
+- `DuplicateAnswerTest` — 같은 quizId 2회 send → `answerRepository.count()==1` + duplicate counter +1
+- `build.gradle`: `test { maxParallelForks = 1 }` (공유 컨테이너 때문)
+- `application-test.yml`: ddl-auto=create-drop, 로그 WARN, allowed-origins "*"
+
+#### (B) 시나리오 5-7 + k6 부하 테스트
+- `RabbitDlqTest` — 존재하지 않는 quizId로 직접 enqueue → 10초 폴링으로 `quiz.answers.dlq` 도달 검증
+- `PubSubSelfSkipTest` — Redis `convertAndSend`로 직접 발행(자기 publisherId) → 구독자 queue poll null (self-skip) / 다른 publisherId면 수신
+- `TimerExpirationTest` — timeLimit=2초 퀴즈, 답변 없음 → GameWatchdog 1초 주기로 advance → 다음 QUIZ_PUSHED 수신
+- `loadtest/k6/lib/stomp.js` — STOMP 프레임 buildConnect/Subscribe/Send/Disconnect/parseFrame ES module
+- `loadtest/k6/game-load.js` — 5단계 ramp(50→500→1000 VU, 17분), setup()에서 방 10개×퀴즈 5개 REST 생성, VU별 roomId 분산, QUIZ_PUSHED 수신 시 답변
+- `loadtest/README.md` — k6 설치/실행/Grafana 연동 가이드
+- `docs/load-test-result.md` — 실행 결과 기록 템플릿 (사용자가 채움)
+- `docs/testing.md` — 통합 테스트 전반 가이드
+
+### 한계 명시 (포트폴리오용 솔직함)
+- **분산 advance 테스트의 한계**: 단일 JVM에서 인스턴스 2개 수동 생성. 실제 2-pod 쿠버네티스 환경과 같지 않음. Redis SETNX 경쟁만 검증 가능.
+- **k6 SockJS 우회**: 테스트 부담 줄이려 raw WebSocket 경로 `/ws/websocket` 사용. 실제 프론트 SockJS 폴링 fallback은 부하 테스트 범위 밖.
+- **부하 테스트 실행은 사용자 수동**: k6는 외부 바이너리. CI 통합은 별도 스프린트.
+
+### 실행
+```bash
+# 통합 테스트 (Docker Desktop 필요)
+cd backend && ./gradlew test --tests 'com.quiz.integration.*'
+
+# 부하 테스트 (k6 설치 필요)
+cd loadtest/k6 && k6 run game-load.js
+```
+
+### 프로젝트 종료
+Step 1-6 모두 완료. 포트폴리오로 제출 가능한 상태.
+
+다음 확장(선택적):
+- Step 7: JWT 인증 전환 (Step 4 임시 `hostId` 파라미터 제거)
+- Step 8: OAuth2 GitHub 로그인
+- Step 9: 게임 결과 PDF 생성 (iText)
+- Step 10: 분산 트레이싱 (Zipkin/Tempo)
+- Step 11: CI/CD (GitHub Actions) + AWS 배포

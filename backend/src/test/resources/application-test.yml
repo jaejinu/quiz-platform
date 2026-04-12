@@ -1,0 +1,28 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+quiz:
+  websocket:
+    allowed-origins:
+      - "*"
+    endpoint: /ws
+  instance:
+    id: ${QUIZ_INSTANCE_ID:test-instance-1}
+  score:
+    max: 1000
+
+logging:
+  level:
+    root: WARN
+    com.quiz: INFO
+    org.springframework.web.socket: WARN
+    org.hibernate: WARN

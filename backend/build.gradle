@@ -75,4 +75,7 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Testcontainers 공유 컨테이너(@Container static + withReuse)를 쓰므로 병렬 금지.
+    // 포크 하나에서 순차 실행되어야 컨테이너 상태가 일관된다.
+    maxParallelForks = 1
 }

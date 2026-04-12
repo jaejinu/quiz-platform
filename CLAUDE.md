@@ -74,7 +74,7 @@ cd frontend && npm install && npm run dev
 3. ✅ **WebSocket + Redis Pub/Sub 이중 경로** — STOMP `/ws` + 로컬 직접 전달 + Redis 브리지 + self-skip
 4. ✅ **핵심 게임 로직** — REST 방/퀴즈 + STOMP join/start/answer/leave + RabbitMQ 답변 파이프라인 + Redis Sorted Set 리더보드 + 타이머/워치독 + 30초 재접속 복구
 5. ✅ **Prometheus 메트릭 + Grafana 대시보드** — `com.quiz.monitoring` 6개 빈 + 5군데 훅 + alerts.yml + provisioning
-6. ⏳ k6 부하 테스트 + Testcontainers 통합 테스트
+6. ✅ **통합 테스트 + 부하 테스트** — Testcontainers 7개 시나리오(Happy/분산advance/재접속/중복답변/DLQ/SelfSkip/Timer) + k6 WebSocket 부하 스크립트
 
 ## Claude Code 작업 시 주의사항
 
