@@ -27,32 +27,38 @@ class DuplicateAnswerTest extends AbstractIntegrationTest {
     @Test
     void duplicateAnswerIsSkippedNotDlqed() throws Exception {
         User host = factory.createHost();
-        User player = factory.createPlayer("alice");
+        User alice = factory.createPlayer("alice");
+        // 참가자 2명 구성: alice가 2번 답변해도 전원 답변(2/2)이 아니므로 advance 안 됨.
+        // 1명만 두면 첫 답변 후 onAnswerCounted가 1/1로 advance → 두 번째가 stale drop되어 duplicate 카운터 증가 안 함.
+        User bob = factory.createPlayer("bob");
         QuizRoom room = factory.createRoom(host.getId(), 10, 30);
         Long roomId = room.getId();
         Quiz q1 = factory.addQuiz(roomId, 0, "Q1", "A", 30);
 
         StompSession hostSession = stompClient.connect(port, host.getId(), host.getNickname(), "HOST");
-        StompSession playerSession = stompClient.connect(port, player.getId(), player.getNickname(), "PLAYER");
+        StompSession aliceSession = stompClient.connect(port, alice.getId(), alice.getNickname(), "PLAYER");
+        StompSession bobSession = stompClient.connect(port, bob.getId(), bob.getNickname(), "PLAYER");
 
         String topic = "/topic/room/" + roomId;
         BlockingQueue<Map> hostTopic = stompClient.subscribe(hostSession, topic, Map.class);
-        BlockingQueue<Map> playerTopic = stompClient.subscribe(playerSession, topic, Map.class);
+        BlockingQueue<Map> aliceTopic = stompClient.subscribe(aliceSession, topic, Map.class);
 
-        // 플레이어 입장 + 게임 시작
-        stompClient.send(playerSession, "/app/room/" + roomId + "/join", new byte[0]);
+        stompClient.send(aliceSession, "/app/room/" + roomId + "/join", new byte[0]);
+        stompClient.send(bobSession, "/app/room/" + roomId + "/join", new byte[0]);
+        // PLAYER_JOINED 2개 수신 확인 (순서 무관)
+        assertThat(pollType(hostTopic, "PLAYER_JOINED", 5)).isNotNull();
         assertThat(pollType(hostTopic, "PLAYER_JOINED", 5)).isNotNull();
 
         double duplicateBefore = answerMetrics.counterProcessed("duplicate").count();
 
         stompClient.send(hostSession, "/app/room/" + roomId + "/start", new byte[0]);
-        assertThat(pollType(playerTopic, "QUIZ_PUSHED", 5)).isNotNull();
+        assertThat(pollType(aliceTopic, "QUIZ_PUSHED", 5)).isNotNull();
 
-        // 같은 퀴즈에 두 번 답변
+        // alice만 같은 퀴즈에 두 번 답변. bob은 답변 안 함 → 전원 답변 조건 불충족으로 advance 안 됨.
         Map<String, Object> payload = Map.of("quizId", q1.getId(), "answer", "A");
-        stompClient.send(playerSession, "/app/room/" + roomId + "/answer", payload);
-        Thread.sleep(200); // 첫 답변이 DB에 들어갈 여유
-        stompClient.send(playerSession, "/app/room/" + roomId + "/answer", payload);
+        stompClient.send(aliceSession, "/app/room/" + roomId + "/answer", payload);
+        Thread.sleep(300); // 첫 답변이 DB에 들어갈 여유
+        stompClient.send(aliceSession, "/app/room/" + roomId + "/answer", payload);
 
         // RabbitMQ 처리 대기
         Thread.sleep(2000);
@@ -68,7 +74,8 @@ class DuplicateAnswerTest extends AbstractIntegrationTest {
         assertThat(answerMetrics.counterProcessed("error").count()).isEqualTo(0.0);
 
         hostSession.disconnect();
-        playerSession.disconnect();
+        aliceSession.disconnect();
+        bobSession.disconnect();
     }
 
     @SuppressWarnings("rawtypes")
