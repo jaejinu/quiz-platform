@@ -108,7 +108,57 @@ OAuth2 autoconfig는 활성 상태로 `ClientRegistrationRepository` 빈 생성.
 
 **커밋**: `412c924`
 
-**결과**: CI 실행 중 (이 문서 작성 시점).
+**결과**: ✅ 인프라 연결 문제 해결. 1개 테스트만 남고 나머지 6개 통과 → 라운드 7로 넘어감.
+
+---
+
+## 라운드 7 — DuplicateAnswerTest 테스트 로직 버그 🎯 (최종)
+
+**증상**: `DuplicateAnswerTest.duplicateAnswerIsSkippedNotDlqed:65` —
+```
+Expecting actual: 0.0 to be greater than or equal to: 1.0
+```
+duplicate counter가 안 증가.
+
+**원인**: 테스트 구성이 참가자 1명 + 퀴즈 1개. 첫 답변이 들어가면:
+1. `AnswerProcessor.onMessage`가 `GameService.onAnswerCounted(roomId, quizId)` 호출
+2. `countByRoomIdAndStatus(CONNECTED) = 1`, `incrementAnswerCount = 1`
+3. `1 >= 1` → advance 발동 → 다음 퀴즈 없음 → `finish()` → `GameStateStore.clear()`
+4. `currentQuizId = null`
+5. 두 번째 답변 도착 → `AnswerService.accept`가 `currentQuizId == null` 확인 → **stale answer로 drop** → AnswerProcessor까지 안 감 → duplicate counter 증가 없음
+
+**교훈**: 테스트 버그였지만 동시에 `AnswerService`의 stale drop과 `AnswerProcessor`의 duplicate 처리가 **서로 다른 경로**임을 드러냄. 두 경로를 각각 검증하려면 시나리오 분리 필요.
+
+**수정**: 참가자 2명 구성 (alice, bob). bob은 join만 → `1 answered != 2 connected` → advance 안 됨 → alice의 두 번째 답변이 AnswerProcessor까지 도달해 unique 제약 위반 → duplicate counter +1.
+
+**커밋**: `fb43541`
+
+**결과**: ✅ **CI 성공**. 8개 테스트 전부 PASS (7개 통합 시나리오 + 빈 placeholder 1개). 2m8s.
+
+---
+
+## 최종 타임라인
+
+```
+685d4aa  Step 11 완료 (CI 실패 시작)
+eb57eaa  Round 1+2: GameService 10-arg + package-lock.json       ❌ junit platform
+192d51c  Round 3: junit-platform-launcher                        ❌ OAuth2 ISE
+ec9f337  Round 4: OAuth2 autoconfig exclude                      ❌ ClientRegistrationRepository 누락
+43de40b  Round 5: Dummy GitHub registration                      ❌ Testcontainers 포트 mismatch
+412c924  Round 6: Singleton Container Pattern                    ❌ DuplicateAnswerTest 버그
+fb43541  Round 7: DuplicateAnswerTest 2 participants              ✅ GREEN
+```
+
+**총 라운드**: 7  
+**소요 시간**: 약 2시간 (CI 재실행 대기 시간 포함)  
+**발견된 버그 분포**:
+- Backend 컴파일 1건 (Step 간 생성자 시그니처 drift)
+- Frontend 스캐폴딩 1건 (lock 파일 누락)
+- Gradle 9.x 마이그레이션 1건
+- Spring Boot 3.3 엄격 검증 2건 (OAuth2 client-id, Testcontainers lifecycle)
+- 실 테스트 로직 1건 (stale vs duplicate 경로 구분)
+
+---
 
 ---
 
