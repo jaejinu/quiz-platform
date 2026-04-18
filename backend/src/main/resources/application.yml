@@ -80,6 +80,14 @@ quiz:
   auth:
     post-login-redirect: ${QUIZ_AUTH_POST_LOGIN_REDIRECT:http://localhost:5173/auth/callback}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
 logging:
   level:
     root: INFO
