@@ -76,11 +76,11 @@ Step별 요약은 [`CLAUDE.md`의 "진행 단계"](../CLAUDE.md) 또는 [`docs/p
 ## 알려진 함정 / 한계
 
 ### 코드 관련
-- **Noto Sans KR 폰트 16MB** — CJK 풀셋 다운로드됨. 한글 전용 서브셋으로 교체하면 ~500KB (Step 9). Git repo 크기 영향.
+- ~~**Noto Sans KR 폰트 16MB**~~ → ✅ 1.2MB 서브셋으로 교체 완료
 - **분산 advance 테스트 한계** — `DistributedAdvanceLockTest`는 단일 JVM 내 인스턴스 2개 생성. 실제 2-pod 환경과 차이 있음.
-- **URL fragment 토큰 XSS 노출** — Step 8의 `#token=...` redirect는 브라우저 history에 남음. 운영 전 `HttpOnly sameSite cookie` 전환 필요 (`docs/auth.md` 참조).
-- **refresh token 미구현** — 1시간 만료 시 재로그인 (현재는 범위 외로 둠).
-- **이메일 계정 병합 미지원** — LOCAL 계정과 GitHub 동일 이메일일 때 `email_conflict` 에러 (병합 Story는 별도).
+- **URL fragment 토큰 XSS 노출** — `#token=...` redirect는 브라우저 history에 남음. HttpOnly cookie 전환 설계는 `docs/auth.md` 참조.
+- ~~**refresh token 미구현**~~ → ✅ 구현 완료 (14일 TTL, rotation, 탈취 감지).
+- ~~**이메일 계정 병합 미지원**~~ → ✅ 구현 완료 (동일 이메일 자동 OAuth 연결).
 
 ### 테스트 관련
 - ~~**Step 6 통합 테스트가 Step 7~10에서 한 번도 실행 안 됨**~~ → ✅ 2026-04-18 로컬에서 7개 시나리오 전체 통과 확인
@@ -104,12 +104,12 @@ Step별 요약은 [`CLAUDE.md`의 "진행 단계"](../CLAUDE.md) 또는 [`docs/p
 4. ~~**Step 6 테스트 실제로 모두 초록**~~ → ✅ 7개 시나리오 통과
 
 ### 🌱 중기 (Medium Priority)
-5. **refresh token** — JWT 1시간 만료 UX 개선
-6. **HttpOnly sameSite cookie** — fragment redirect 보안 강화
-7. **Swagger/OpenAPI** — `/api/**` 자동 문서화 (springdoc-openapi)
-8. **이메일 계정 병합** — OAuth + LOCAL 동일 이메일 정책
-9. **Flyway/Liquibase** — 스키마 마이그레이션 (`ddl-auto=validate` 전제)
-10. **Noto Sans KR 서브셋** — 16MB → ~500KB (pyftsubset 또는 fonttools)
+5. ~~**refresh token**~~ → ✅ 완료 (rotation + 탈취 감지 + 자동 갱신)
+6. **HttpOnly sameSite cookie** — 범위 크고 가성비 낮아 보류 (설계 노트: `docs/auth.md`)
+7. ~~**Swagger/OpenAPI**~~ → ✅ 완료 (`/swagger-ui/index.html`)
+8. ~~**이메일 계정 병합**~~ → ✅ 완료 (OAuth + LOCAL 동일 이메일 자동 연결)
+9. ~~**Flyway**~~ → ✅ 완료 (V1 초기 스키마, local/prod: validate + flyway)
+10. ~~**Noto Sans KR 서브셋**~~ → ✅ 완료 (16MB → 1.2MB)
 
 ### 🌟 장기 (Low Priority / 여유 있을 때)
 11. **Grafana Loki** — 로그 집계 + trace-to-logs 링크
