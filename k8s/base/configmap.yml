@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: quiz-platform
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/quizdb
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_PORT: "5672"
+  OTLP_ENDPOINT: http://tempo:4318/v1/traces
+  QUIZ_INSTANCE_ID: ""  # 각 pod에서 hostname으로 자동 설정
+  QUIZ_WEBSOCKET_ALLOWED_ORIGINS: https://quiz.example.com
+  QUIZ_AUTH_POST_LOGIN_REDIRECT: https://quiz.example.com/auth/callback
