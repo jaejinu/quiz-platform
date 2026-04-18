@@ -18,6 +18,13 @@ spring:
     username: quiz
     password: quiz
     virtual-host: /
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:dummy-local-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:dummy-local-client-secret}
   jackson:
     serialization:
       write-dates-as-timestamps: false

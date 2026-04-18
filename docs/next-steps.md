@@ -2,7 +2,7 @@
 
 다음 세션에서 이 프로젝트를 이어받을 때 **먼저 읽을 파일**.
 
-현재 커밋: `685d4aa` (Step 11 완료). 브랜치: `main`. 리포: https://github.com/jaejinu/quiz-platform
+현재 커밋: `644956f` (로컬 빌드/테스트 검증 완료). 브랜치: `main`. 리포: https://github.com/jaejinu/quiz-platform
 
 ---
 
@@ -33,46 +33,35 @@ Step별 요약은 [`CLAUDE.md`의 "진행 단계"](../CLAUDE.md) 또는 [`docs/p
 
 ---
 
-## 검증 안 된 것 (중요)
+## 검증 완료 ✅
 
-이 프로젝트는 **코드를 실제로 실행·빌드·테스트한 적이 없다**. 다음 중 하나부터 시작 권장.
+**2026-04-18**: 로컬 빌드/실행/테스트 모두 검증 완료.
 
-### 1. 로컬 빌드/실행 (최우선)
-```bash
-# 인프라
-cd docker && docker compose up -d
+### 검증 결과
+| 항목 | 결과 |
+|---|---|
+| `./gradlew compileJava` | ✅ 컴파일 성공 |
+| `./gradlew build -x test` | ✅ JAR 빌드 성공 |
+| `./gradlew test` (통합 테스트 7개) | ✅ 전체 통과 |
+| `docker compose up -d` + `bootRun` | ✅ 서버 기동, Health UP |
+| HOST 로그인 + JWT 발급 | ✅ `/api/auth/login` 정상 |
+| `npm run dev` (프론트) | ✅ Vite dev server 정상 |
+| `npm run build` (프론트) | ✅ production 빌드 성공 |
 
-# 백엔드 (Gradle wrapper가 없음 — 먼저 생성 필요)
-cd ../backend
-gradle wrapper --gradle-version 8.10   # 최초 1회
-./gradlew bootRun --args='--spring.profiles.active=local'
-
-# 프론트
-cd ../frontend
-npm install && npm run dev
-```
-
-**예상 이슈**:
-- Gradle wrapper가 리포에 커밋 안 됨 (Agent 환경에 Gradle 없어서 생성 불가였음). `gradle wrapper` 명령으로 생성해서 커밋하면 CI도 `./gradlew` 쓸 수 있음.
-- Spring Boot 3.3 + jjwt 0.12 + OpenTelemetry BOM 조합의 의존성 충돌 가능 (에이전트가 컴파일 검증 못 함)
-- 일부 import 경로/시그니처 불일치 가능성 (특히 Step 4 병렬 4에이전트 부분)
-
-### 2. Step 6 통합 테스트 실행
-```bash
-cd backend && ./gradlew test --tests 'com.quiz.integration.*'
-```
-7개 시나리오가 실제로 통과하는지 확인. Docker Desktop 필요.
-
-### 3. GitHub Actions CI 첫 실행
-현재 `main`에 push 됐으므로 이미 CI 돌았을 것. https://github.com/jaejinu/quiz-platform/actions 확인 → 실패 시 로그 읽고 수정.
+### 검증 과정에서 수정한 이슈
+1. **Gradle wrapper 부재** → Gradle 8.14 wrapper 추가 + foojay toolchain resolver (Java 21 자동 프로비저닝)
+2. **Testcontainers Docker 29.x 비호환** → Spring Boot BOM이 Testcontainers를 1.19.8로 강제 → 내부 shaded docker-java가 API 1.43 사용 → Docker 29.x가 400 반환. `docker-java.properties`로 API 1.44 강제 + BOM 버전 오버라이드 (1.21.1)
+3. **RabbitMQ ARM64 비호환** → `rabbitmq:3.13-management-alpine`이 amd64 전용 → `rabbitmq:4.0-management-alpine`으로 변경
+4. **RabbitAdmin 빈 미등록** → `RabbitConfig`에 명시적 `@Bean` 추가
+5. **OAuth2 GitHub 설정 누락** → `application-local.yml`에 dummy client-id/secret 기본값 추가
 
 ---
 
 ## 수동으로 해야 할 작업
 
 ### 로컬 개발 시
-1. **Gradle wrapper 생성** (위 참조) → 커밋
-2. **frontend `package-lock.json` 생성** — 첫 `npm install` 후 생성됨, 커밋 권장 (CI에서 `npm ci` 쓰려면 필요)
+1. ~~**Gradle wrapper 생성**~~ → ✅ 완료 (`644956f`)
+2. **frontend `package-lock.json` 커밋** — `npm install` 후 생성됨, CI에서 `npm ci` 쓰려면 커밋 권장
 
 ### 프로덕션 배포 시 (`docs/deployment.md` 참조)
 1. **GitHub OAuth App 등록** (`docs/oauth-setup.md`)
@@ -94,7 +83,7 @@ cd backend && ./gradlew test --tests 'com.quiz.integration.*'
 - **이메일 계정 병합 미지원** — LOCAL 계정과 GitHub 동일 이메일일 때 `email_conflict` 에러 (병합 Story는 별도).
 
 ### 테스트 관련
-- **Step 6 통합 테스트가 Step 7~10에서 한 번도 실행 안 됨** — 각 Step마다 "0 수정" 원칙 세웠지만 실제 검증 미실행. 다음 세션에서 먼저 `./gradlew test` 돌려서 초록 확인.
+- ~~**Step 6 통합 테스트가 Step 7~10에서 한 번도 실행 안 됨**~~ → ✅ 2026-04-18 로컬에서 7개 시나리오 전체 통과 확인
 - **k6 부하 테스트 미실행** — 결과는 사용자가 `docs/load-test-result.md`에 기록.
 
 ### 인프라 관련
@@ -109,10 +98,10 @@ cd backend && ./gradlew test --tests 'com.quiz.integration.*'
 우선순위 순:
 
 ### 🔥 단기 (High Priority)
-1. **실 빌드/테스트/실행 검증** — 위 "검증 안 된 것" 1, 2, 3
-2. **Gradle wrapper 커밋** — CI `./gradlew` 동작하도록
-3. **의존성 충돌 해결** — `gradle dependencies`로 확인 후 수정
-4. **Step 6 테스트 실제로 모두 초록** — 7개 시나리오 통과 확인 + 실패 시 수정
+1. ~~**실 빌드/테스트/실행 검증**~~ → ✅ 완료
+2. ~~**Gradle wrapper 커밋**~~ → ✅ 완료
+3. ~~**의존성 충돌 해결**~~ → ✅ 완료 (Testcontainers BOM 오버라이드)
+4. ~~**Step 6 테스트 실제로 모두 초록**~~ → ✅ 7개 시나리오 통과
 
 ### 🌱 중기 (Medium Priority)
 5. **refresh token** — JWT 1시간 만료 UX 개선
