@@ -112,12 +112,12 @@ Step별 요약은 [`CLAUDE.md`의 "진행 단계"](../CLAUDE.md) 또는 [`docs/p
 10. ~~**Noto Sans KR 서브셋**~~ → ✅ 완료 (16MB → 1.2MB)
 
 ### 🌟 장기 (Low Priority / 여유 있을 때)
-11. **Grafana Loki** — 로그 집계 + trace-to-logs 링크
-12. **Alertmanager** — Slack/Discord 알림
-13. **Kubernetes manifests** — ECS/EKS 배포 시
-14. **Terraform** — IaC (AWS)
-15. **분산 트레이싱 Service Graph** — Tempo metrics_generator 활성화
-16. **게임 방 캐싱** — FINISHED 방 결과 PDF를 Redis에 캐시 (재생성 비용 절감)
+11. ~~**Grafana Loki**~~ → ✅ 완료 (Loki + Promtail + trace-to-logs)
+12. ~~**Alertmanager**~~ → ✅ 완료 (Slack/Discord webhook 템플릿)
+13. ~~**Kubernetes manifests**~~ → ✅ 완료 (Deployment/Service/HPA/Ingress)
+14. ~~**Terraform**~~ → ✅ 완료 (VPC/ECS/RDS/ElastiCache/MQ 모듈)
+15. ~~**분산 트레이싱 Service Graph**~~ → ✅ 완료 (Tempo metrics_generator 활성화)
+16. ~~**게임 방 캐싱**~~ → ✅ 완료 (Redis 24시간 TTL)
 17. **푸시 알림** — WebPush (PWA)
 18. **관전 모드 (OBSERVER)** — Quiz Platform 기획서에 있던 확장
 
