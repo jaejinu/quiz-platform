@@ -14,3 +14,8 @@ datasources:
         enabled: true
       search:
         hide: false
+      tracesToLogs:
+        datasourceUid: loki
+        filterByTraceID: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'

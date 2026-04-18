@@ -14,6 +14,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
 
   grafana:
     image: grafana/grafana:latest
@@ -42,7 +43,39 @@ services:
       - ./tempo/tempo.yml:/etc/tempo.yml:ro
       - tempo-data:/var/tempo
 
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: quiz-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: quiz-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: quiz-promtail
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ./promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
 volumes:
   prometheus-data:
   grafana-data:
   tempo-data:
+  loki-data:
