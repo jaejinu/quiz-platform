@@ -75,6 +75,7 @@ quiz:
     jwt:
       secret: ${QUIZ_JWT_SECRET:dev-local-secret-min-32-bytes-xxxxxxxxxx}
       access-token-ttl: 1h
+      refresh-token-ttl: 14d
       issuer: quiz-platform
   auth:
     post-login-redirect: ${QUIZ_AUTH_POST_LOGIN_REDIRECT:http://localhost:5173/auth/callback}

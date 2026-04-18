@@ -18,10 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 /**
- * 이메일/비밀번호 회원가입/로그인.
- *
- * <p>회원가입 기본 role은 {@link UserRole#PLAYER}. HOST 계정은 {@code HostSeedRunner}가 시드하거나
- * DB에서 직접 부여한다 (Step 7 범위에선 승격 엔드포인트 없음).
+ * 이메일/비밀번호 회원가입/로그인 + refresh token 갱신/로그아웃.
  */
 @Slf4j
 @Service
@@ -34,6 +31,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
     public TokenResponse signup(SignupRequest req) {
         log.debug("signup email={}", req.email());
@@ -64,13 +62,34 @@ public class AuthService {
         return buildResponse(user);
     }
 
+    /**
+     * Refresh token으로 새 access token + 새 refresh token 발급 (rotation).
+     */
+    public TokenResponse refresh(String rawRefreshToken) {
+        RefreshTokenService.RotateResult result = refreshTokenService.rotate(rawRefreshToken);
+        User user = userRepository.findById(result.userId())
+            .orElseThrow(() -> new UnauthorizedException("사용자를 찾을 수 없습니다"));
+
+        String accessToken = jwtTokenProvider.issue(user.getId(), user.getNickname(), user.getRole());
+        Instant expiresAt = Instant.now().plus(jwtTokenProvider.getTtl());
+        return new TokenResponse(
+            accessToken, "Bearer", expiresAt,
+            result.rawToken(), result.expiresAt(),
+            new TokenResponse.UserInfo(user.getId(), user.getNickname(), user.getRole().name())
+        );
+    }
+
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
+    }
+
     private TokenResponse buildResponse(User user) {
         String token = jwtTokenProvider.issue(user.getId(), user.getNickname(), user.getRole());
         Instant expiresAt = Instant.now().plus(jwtTokenProvider.getTtl());
+        RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
         return new TokenResponse(
-            token,
-            "Bearer",
-            expiresAt,
+            token, "Bearer", expiresAt,
+            refresh.rawToken(), refresh.expiresAt(),
             new TokenResponse.UserInfo(user.getId(), user.getNickname(), user.getRole().name())
         );
     }

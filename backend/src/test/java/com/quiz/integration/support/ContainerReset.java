@@ -38,7 +38,7 @@ public class ContainerReset {
         // 역순으로 CASCADE — FK 없는 구조이긴 하지만 일관된 순서 유지.
         try {
             jdbcTemplate.execute(
-                    "TRUNCATE TABLE answers, participants, quizzes, quiz_rooms, users RESTART IDENTITY CASCADE"
+                    "TRUNCATE TABLE answers, participants, quizzes, quiz_rooms, refresh_tokens, users RESTART IDENTITY CASCADE"
             );
         } catch (Exception e) {
             // 최초 실행(스키마 생성 직전)에는 테이블이 없을 수 있음 — 무시.

@@ -1,6 +1,7 @@
 package com.quiz.auth.oauth;
 
 import com.quiz.auth.JwtTokenProvider;
+import com.quiz.auth.RefreshTokenService;
 import com.quiz.common.exception.QuizException;
 import com.quiz.domain.user.OAuthProvider;
 import com.quiz.domain.user.User;
@@ -44,6 +45,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
     private final AuthProperties authProperties;
 
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
@@ -81,11 +83,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         try {
             User user = resolveOrCreateUser(githubId, login, email);
             String jwt = jwtTokenProvider.issue(user.getId(), user.getNickname(), user.getRole());
+            RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
             String url = authProperties.postLoginRedirect()
                 + "#token=" + URLEncoder.encode(jwt, StandardCharsets.UTF_8)
                 + "&userId=" + user.getId()
                 + "&nickname=" + URLEncoder.encode(user.getNickname(), StandardCharsets.UTF_8)
-                + "&role=" + user.getRole().name();
+                + "&role=" + user.getRole().name()
+                + "&refreshToken=" + URLEncoder.encode(refresh.rawToken(), StandardCharsets.UTF_8)
+                + "&refreshTokenExpiresAt=" + URLEncoder.encode(refresh.expiresAt().toString(), StandardCharsets.UTF_8);
 
             log.info("github oauth2 login success userId={} nickname={}", user.getId(), user.getNickname());
             redirectStrategy.sendRedirect(request, response, url);

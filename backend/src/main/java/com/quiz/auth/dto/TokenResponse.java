@@ -6,6 +6,8 @@ public record TokenResponse(
     String accessToken,
     String tokenType,
     Instant expiresAt,
+    String refreshToken,
+    Instant refreshTokenExpiresAt,
     UserInfo user
 ) {
 

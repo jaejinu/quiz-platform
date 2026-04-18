@@ -1,6 +1,7 @@
 package com.quiz.auth;
 
 import com.quiz.auth.dto.LoginRequest;
+import com.quiz.auth.dto.RefreshRequest;
 import com.quiz.auth.dto.SignupRequest;
 import com.quiz.auth.dto.TokenResponse;
 import jakarta.validation.Valid;
@@ -33,5 +34,19 @@ public class AuthController {
         log.debug("POST /api/auth/login email={}", req.email());
         TokenResponse token = authService.login(req);
         return ResponseEntity.ok(token);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshRequest req) {
+        log.debug("POST /api/auth/refresh");
+        TokenResponse token = authService.refresh(req.refreshToken());
+        return ResponseEntity.ok(token);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest req) {
+        log.debug("POST /api/auth/logout");
+        authService.logout(req.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 }

@@ -31,11 +31,15 @@ export default function App() {
     const userId = params.get('userId');
     const nickname = params.get('nickname');
     const role = params.get('role');
+    const refreshToken = params.get('refreshToken');
 
     if (token && userId && nickname && role) {
       const user = { id: Number(userId), nickname, role };
       localStorage.setItem('quiz.jwt', token);
       localStorage.setItem('quiz.user', JSON.stringify(user));
+      if (refreshToken) {
+        localStorage.setItem('quiz.refreshToken', refreshToken);
+      }
       setJwt(token);
       setCurrentUser(user);
       window.history.replaceState(null, '', '/');
@@ -45,13 +49,25 @@ export default function App() {
   const handleLogin = (tokenResponse) => {
     localStorage.setItem('quiz.jwt', tokenResponse.accessToken);
     localStorage.setItem('quiz.user', JSON.stringify(tokenResponse.user));
+    if (tokenResponse.refreshToken) {
+      localStorage.setItem('quiz.refreshToken', tokenResponse.refreshToken);
+    }
     setJwt(tokenResponse.accessToken);
     setCurrentUser(tokenResponse.user);
   };
 
   const handleLogout = () => {
+    const refreshToken = localStorage.getItem('quiz.refreshToken');
+    if (refreshToken) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
     localStorage.removeItem('quiz.jwt');
     localStorage.removeItem('quiz.user');
+    localStorage.removeItem('quiz.refreshToken');
     setJwt(null);
     setCurrentUser(null);
   };
