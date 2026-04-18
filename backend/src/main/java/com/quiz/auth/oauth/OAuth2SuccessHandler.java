@@ -117,13 +117,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             throw new QuizException("email_required", "GitHub public email이 필요합니다");
         }
 
-        // email 충돌: 이미 LOCAL(또는 다른 provider)으로 가입한 계정
+        // 같은 이메일로 LOCAL 가입된 계정이 있으면 OAuth 정보를 연결 (계정 병합)
         Optional<User> byEmail = userRepository.findByEmail(email);
-        if (byEmail.isPresent() && byEmail.get().getOauthProvider() != OAuthProvider.GITHUB) {
-            throw new QuizException("email_conflict", "해당 이메일은 다른 로그인 수단으로 이미 가입되어 있습니다");
+        if (byEmail.isPresent()) {
+            User existingUser = byEmail.get();
+            existingUser.linkOAuth(OAuthProvider.GITHUB, githubId);
+            log.info("계정 병합: userId={} email={} ← GitHub({})", existingUser.getId(), email, githubId);
+            return existingUser;
         }
 
-        // nickname: users 테이블에 unique 제약이 없으므로 login 그대로 사용 (중복 허용)
         User newUser = User.builder()
             .email(email)
             .nickname(login)

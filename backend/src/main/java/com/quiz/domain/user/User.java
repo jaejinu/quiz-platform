@@ -66,4 +66,12 @@ public class User extends BaseTimeEntity {
     public void changeNickname(String nickname) {
         this.nickname = nickname;
     }
+
+    /**
+     * 기존 LOCAL 계정에 OAuth 정보를 연결 (계정 병합).
+     */
+    public void linkOAuth(OAuthProvider provider, String oauthId) {
+        this.oauthProvider = provider;
+        this.oauthId = oauthId;
+    }
 }
