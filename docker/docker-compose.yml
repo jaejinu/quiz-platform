@@ -33,7 +33,7 @@ services:
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:4.0-management-alpine
     container_name: quiz-rabbitmq
     restart: unless-stopped
     environment:

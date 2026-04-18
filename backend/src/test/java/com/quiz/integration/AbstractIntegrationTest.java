@@ -45,7 +45,7 @@ public abstract class AbstractIntegrationTest {
             .withExposedPorts(6379)
             .withReuse(true);
 
-    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:3.13-management-alpine")
+    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:4.0-management-alpine")
             .withReuse(true);
 
     static {

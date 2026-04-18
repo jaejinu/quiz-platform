@@ -23,6 +23,10 @@ repositories {
     mavenCentral()
 }
 
+// Spring Boot BOM이 Testcontainers를 1.19.8로 고정하는데,
+// Docker 29.x (API 1.44+)는 docker-java 3.4+ 필요 → Testcontainers 1.21.1 이상
+ext['testcontainers.version'] = '1.21.1'
+
 dependencies {
     // Web + WebSocket
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -75,10 +79,10 @@ dependencies {
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
-    testImplementation 'org.testcontainers:junit-jupiter:1.20.3'
-    testImplementation 'org.testcontainers:postgresql:1.20.3'
-    testImplementation 'org.testcontainers:rabbitmq:1.20.3'
-    testImplementation 'com.redis:testcontainers-redis:2.2.2'
+    testImplementation 'org.testcontainers:junit-jupiter:1.21.1'
+    testImplementation 'org.testcontainers:postgresql:1.21.1'
+    testImplementation 'org.testcontainers:rabbitmq:1.21.1'
+    testImplementation 'com.redis:testcontainers-redis:2.2.4'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
 
